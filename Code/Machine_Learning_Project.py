@@ -15,9 +15,9 @@ import seaborn as sns
 
 
 #Loading Data
-train_features = pd.read_csv('C:/Users/purvi/Downloads/MachineLearningMoAProject/train_features.csv')
-train_targets = pd.read_csv('C:/Users/purvi/Downloads/MachineLearningMoAProject/train_targets_scored.csv')
-test_features = pd.read_csv('C:/Users/purvi/Downloads/MachineLearningMoAProject/test_features.csv')
+train_features = pd.read_csv("./data/train_features.csv")
+train_drugs = pd.read_csv("./data/train_drug.csv")
+train_targets_scored = pd.read_csv("./data/train_targets_scored.csv")
 
 
 # Getting general understanding of the data 
@@ -38,27 +38,27 @@ train_features.describe()
 # In[5]:
 
 
-train_targets.head()
+# train_targets.head()
 
 
 # In[6]:
 
 
-train_targets.info()
-train_targets.describe()
+# train_targets.info()
+# train_targets.describe()
 
 
 # In[7]:
 
 
-test_features.head()
+# test_features.head()
 
 
 # In[8]:
 
 
-test_features.info()
-test_features.describe()
+# test_features.info()
+# test_features.describe()
 
 
 # # Checking for missing values in the datasets
@@ -72,13 +72,13 @@ train_features.isnull().sum()
 # In[10]:
 
 
-train_targets.isnull().sum()
+# train_targets.isnull().sum()
 
 
 # In[11]:
 
 
-test_features.isnull().sum()
+# test_features.isnull().sum()
 
 
 # # Analyzing the distributions of numeric features using histograms and box plots
