@@ -2,28 +2,36 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sys
-sys.path.append("./data")
 
-train_peptides = pd.read_csv("./data/train_peptides.csv")
-train_proteins = pd.read_csv("./data/train_proteins.csv")
-train_clinical_data = pd.read_csv("./data/train_clinical_data.csv")
-supp_clinical_data = pd.read_csv("./data/supplemental_clinical_data.csv")
+train_features = pd.read_csv("./data/train_features.csv")
+train_drugs = pd.read_csv("./data/train_drug.csv")
+train_targets_scored = pd.read_csv("./data/train_targets_scored.csv")
 
-# print(train_peptides.head().to_string())
-# print(train_proteins.head().to_string())
-# print(train_clinical_data.head().to_string())
-# print(supp_clinical_data.head().to_string())
+print(train_features.shape)
+print(train_drugs.shape)
+print(train_targets_scored.shape)
 
-print(train_peptides.isna().sum())
-print(train_proteins.isna().sum())
-print(train_clinical_data.isna().sum())
-print(supp_clinical_data.isna().sum())
+sns.set_style("darkgrid")
+train_features["treatments"] = ["Compound (drugs)" if i == "trt_cp" else "Control (no drugs)" for i in train_features["cp_type"]]
+ax = sns.countplot(data=train_features, x=train_features.treatments, palette='colorblind', alpha=0.75)
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+plt.title("Treatment type")
+plt.show()
+train_features = train_features.drop(["treatments"], axis=1)
 
-print(train_peptides.describe().to_string())
-print(train_proteins.describe().to_string())
-print(train_clinical_data.describe().to_string())
-print(supp_clinical_data.describe().to_string())
+ax = sns.countplot(data=train_features, x=train_features.cp_time, palette='muted', alpha=0.75)
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+plt.title("Dosage time in hours")
+plt.show()
 
+train_features["dose_levels"] = ["High" if i == "D2" else "Low" for i in train_features["cp_dose"]]
+ax = sns.countplot(data=train_features, x=train_features.dose_levels, palette='magma', alpha=0.75)
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+plt.title("Dosage level")
+plt.show()
 
+train_features = train_features.drop(["dose_levels"], axis=1)
 
