@@ -16,6 +16,7 @@ train_features["treatments"] = ["Compound (drugs)" if i == "trt_cp" else "Contro
 ax = sns.countplot(data=train_features, x=train_features.treatments, palette='colorblind', alpha=0.75)
 for p in ax.patches:
     ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+ax.set(xlabel=None, ylabel=None)
 plt.title("Treatment type")
 plt.show()
 train_features = train_features.drop(["treatments"], axis=1)
@@ -23,6 +24,7 @@ train_features = train_features.drop(["treatments"], axis=1)
 ax = sns.countplot(data=train_features, x=train_features.cp_time, palette='muted', alpha=0.75)
 for p in ax.patches:
     ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+ax.set(xlabel=None, ylabel=None)
 plt.title("Dosage time in hours")
 plt.show()
 
@@ -30,6 +32,7 @@ train_features["dose_levels"] = ["High" if i == "D2" else "Low" for i in train_f
 ax = sns.countplot(data=train_features, x=train_features.dose_levels, palette='magma', alpha=0.75)
 for p in ax.patches:
     ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()), ha='center', va='center', xytext = (0, 5), textcoords='offset points')
+ax.set(xlabel=None, ylabel=None)
 plt.title("Dosage level")
 plt.show()
 
