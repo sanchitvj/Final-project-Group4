@@ -3,176 +3,143 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import ttest_ind
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 #Loading Data
 train_features = pd.read_csv("./data/train_features.csv")
 train_drugs = pd.read_csv("./data/train_drug.csv")
 train_target_scored = pd.read_csv("./data/train_targets_scored.csv")
 
-train_features.describe()
+print(train_features.shape)
+print(train_drugs.shape)
+print(train_target_scored.shape)
 
-def plotf(col1, col2, col3, col4):
-    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+#train_features.describe()
+
+#def plot_selected_features(features, data, title):
+    #plt.figure(figsize=(15, 5))
+    #for feature in features:
+        #sns.kdeplot(data[feature], lw=2)
+    #plt.xlabel('Value')
+    #plt.ylabel('Density')
+    #plt.title(title)
+    #plt.legend(features)
+    #plt.show()
+#selected_features = ['c-10', 'c-50', 'c-70', 'c-90']
+#plot_selected_features(selected_features, train_features, 'Selected c- Features')
+
+def plot_individual_histograms(features, data, title):
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    axes = axes.ravel()
+
+    for i, feature in enumerate(features):
+        axes[i].hist(data[feature], bins=30, alpha=0.6)
+        axes[i].set_xlabel('Value')
+        axes[i].set_ylabel('Frequency')
+        axes[i].set_title(f'Histogram of {feature}')
     
-    sns.histplot(data=train_features, x=col1, kde=True, ax=axes[0], color='blue')
-    axes[0].set_title(col1)
-    
-    sns.histplot(data=train_features, x=col2, kde=True, ax=axes[1], color='red')
-    axes[1].set_title(col2)
-    
-    sns.histplot(data=train_features, x=col3, kde=True, ax=axes[2], color='green')
-    axes[2].set_title(col3)
-    
-    sns.histplot(data=train_features, x=col4, kde=True, ax=axes[3], color='purple')
-    axes[3].set_title(col4)
-    
+    plt.suptitle(title, y=1.02)
     plt.tight_layout()
     plt.show()
+selected_features = ['c-10', 'c-50', 'c-70', 'c-90']
+plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
 
+selected_genes = ['g-10', 'g-100', 'g-200', 'g-400']
+plot_individual_histograms(selected_genes, train_features, 'Selected g- Features')
 
-plotf('c-10', 'c-50', 'c-70', 'c-90')
-
-def plotd(col):
-    sns.histplot(data=train_features, x=col, hue='cp_type', kde=True)
-    plt.title(col)
+def plot_cell_viability_difference(feature, data, control_data):
+    plt.figure(figsize=(15, 5))
+    sns.kdeplot(data[feature], lw=2, label="Treated")
+    sns.kdeplot(control_data[feature], lw=2, label="Control")
+    plt.xlabel('Value')
+    plt.ylabel('Density')
+    plt.title(f'Cell Viability Difference for {feature}')
+    plt.legend()
     plt.show()
 
-plotd("c-30")
+control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
+treated_samples = train_features[train_features['cp_type'] == 'trt_cp']
+plot_cell_viability_difference('c-30', treated_samples, control_samples)
 
-def plott(col):
-    sns.histplot(data=train_features, x=col, hue='cp_time', kde=True)
-    plt.title(col)
+
+def plot_treatment_time_impact(feature, data):
+    plt.figure(figsize=(15, 5))
+    for time in data['cp_time'].unique():
+        sns.kdeplot(data[data['cp_time'] == time][feature], lw=2, label=f'{time} hours')
+    plt.xlabel('Value')
+    plt.ylabel('Density')
+    plt.title(f'Impact of Treatment Time on {feature}')
+    plt.legend()
     plt.show()
 
-plott('c-30')
+plot_treatment_time_impact('c-30', treated_samples)
 
 
+def correlation_matrix(data, title):
+    corr = data.corr()
+    mask = np.triu(np.ones_like(corr, dtype=bool))
 
-#Datasets for treated and control experiments
-treated= train_features[train_features['cp_type']=='trt_cp']
-control= train_features[train_features['cp_type']=='ctl_vehicle']
-
-
-#Treatment time datasets
-cp24= train_features[train_features['cp_time']== 24]
-cp48= train_features[train_features['cp_time']== 48]
-cp72= train_features[train_features['cp_time']== 72]
-
-
-#Treated drugs without control
-treated_list = treated['sig_id'].to_list()
-drugs_tr= train_target_scored[train_target_scored['sig_id'].isin(treated_list)]
-
-
-#adt= All Drugs Treated
-adt= train_drugs[train_drugs['sig_id'].isin(treated_list)]
-
-#Select the columns c-
-c_cols = [col for col in train_features.columns if 'c-' in col]
-#Filter the columns c-
-cells=treated[c_cols]
-
-#Select the columns g-
-g_cols = [col for col in train_features.columns if 'g-' in col]
-#Filter the columns g-
-genes=treated[g_cols]
-
-
-
-def plotd(f1):
-    plt.style.use('seaborn')
-    sns.set_style('whitegrid')
-    fig = plt.figure(figsize=(15,5))
-    #1 rows 2 cols
-    #first row, first col
-    ax1 = plt.subplot2grid((1,2),(0,0))
-    plt.hist(control[f1], bins=4, color='mediumpurple',alpha=0.5)
-    plt.title(f'control: {f1}',weight='bold', fontsize=18)
-    #first row sec col
-    ax1 = plt.subplot2grid((1,2),(0,1))
-    plt.hist(treated[f1], bins=4, color='darkcyan',alpha=0.5)
-    plt.title(f'Treated with drugs: {f1}',weight='bold', fontsize=18)
-
-
-def plott(f1):
-    plt.style.use('seaborn')
-    sns.set_style('whitegrid')
-    fig = plt.figure(figsize=(15,5))
-    #1 rows 2 cols
-    #first row, first col
-    ax1 = plt.subplot2grid((1,3),(0,0))
-    plt.hist(cp24[f1], bins=3, color='deepskyblue',alpha=0.5)
-    plt.title(f'Treatment duration 24h: {f1}',weight='bold', fontsize=14)
-    #first row sec col
-    ax1 = plt.subplot2grid((1,3),(0,1))
-    plt.hist(cp48[f1], bins=3, color='lightgreen',alpha=0.5)
-    plt.title(f'Treatment duration 48h: {f1}',weight='bold', fontsize=14)
-    #first row 3rd column
-    ax1 = plt.subplot2grid((1,3),(0,2))
-    plt.hist(cp72[f1], bins=3, color='gold',alpha=0.5)
-    plt.title(f'Treatment duration 72h: {f1}',weight='bold', fontsize=14)
+    plt.figure(figsize=(15, 12))
+    sns.heatmap(corr, mask=mask, cmap='coolwarm', annot=True, fmt=".2f", linewidths=0.5, square=True, cbar_kws={"shrink": .8})
+    plt.title(title)
+    plt.xticks(rotation=90)
+    plt.yticks(rotation=0)
     plt.show()
 
+c_cols = [col for col in treated_samples.columns if 'c-' in col]
+correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
 
-plt.figure(figsize=(15, 6))
-sns.heatmap(cells.corr(), cmap='coolwarm', alpha=0.9)
-plt.title('Correlation: Cell viability', fontsize=15, weight='bold')
-plt.xticks(weight='bold')
-plt.yticks(weight='bold')
+
+g_cols = [col for col in treated_samples.columns if 'g-' in col]
+correlation_matrix(treated_samples[g_cols], 'Correlation Between Gene Expression Features in Treated Samples')
+
+control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
+treatment_samples = train_features[train_features['cp_type'] == 'trt_cp']
+# Get gene expression columns
+#gene_columns = [col for col in train_features.columns if col.startswith('g-')]
+# Perform t-test on each gene expression column
+#t_test_results = []
+#for gene in gene_columns:
+    #control_group = control_samples[gene]
+    #treatment_group = treatment_samples[gene]
+    
+    #t_stat, p_value = ttest_ind(control_group, treatment_group, equal_var=False)
+    
+    #t_test_results.append({
+        #'gene': gene,
+        #'t_stat': t_stat,
+        #'p_value': p_value
+    #})
+#t_test_results_df = pd.DataFrame(t_test_results)
+#from statsmodels.stats.multitest import multipletests
+#t_test_results_df['fdr_bh'] = multipletests(t_test_results_df['p_value'], method='fdr_bh')[1]
+# Set a significance threshold, such as 0.05
+#significance_threshold = 0.05
+# Filter differentially expressed genes
+#differentially_expressed_genes = t_test_results_df[t_test_results_df['fdr_bh'] < significance_threshold]
+# Show the differentially expressed genes
+#print(differentially_expressed_genes)
+
+
+# Select gene expression columns ('g-' columns)
+gene_expression_columns = [col for col in train_features.columns if col.startswith('g-')]
+gene_expression_data = train_features[gene_expression_columns]
+# Standardize the gene expression data
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(gene_expression_data)
+# Apply PCA
+pca = PCA(n_components=3)
+principal_components = pca.fit_transform(scaled_data)
+# Create a DataFrame with the principal components
+pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
+# Visualize the results
+plt.figure(figsize=(8, 6))
+plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.title('PCA of Gene Expression Data')
 plt.show()
 
 
-def plotf(f1, f2, f3, f4):
-    plt.style.use('seaborn')
-    sns.set_style('whitegrid')
-
-    fig= plt.figure(figsize=(15,10))
-    #2 rows 2 cols
-    #first row, first col
-    ax1 = plt.subplot2grid((2,2),(0,0))
-    sns.distplot(a[f1], color='crimson')
-    plt.title(f1,weight='bold', fontsize=18)
-    plt.yticks(weight='bold')
-    plt.xticks(weight='bold')
-    #first row sec col
-    ax1 = plt.subplot2grid((2,2), (0, 1))
-    sns.distplot(a[f2], color='gainsboro')
-    plt.title(f2,weight='bold', fontsize=18)
-    plt.yticks(weight='bold')
-    plt.xticks(weight='bold')
-    #Second row first column
-    ax1 = plt.subplot2grid((2,2), (1, 0))
-    sns.distplot(a[f3], color='deepskyblue')
-    plt.title(f3,weight='bold', fontsize=18)
-    plt.yticks(weight='bold')
-    plt.xticks(weight='bold')
-    #second row second column
-    ax1 = plt.subplot2grid((2,2), (1, 1))
-    sns.distplot(a[f4], color='black')
-    plt.title(f4,weight='bold', fontsize=18)
-    plt.yticks(weight='bold')
-    plt.xticks(weight='bold')
-
-    return plt.show()
-
-def corrs(data, col1='Gene 1', col2='Gene 2',rows=5,thresh=0.8, pos=[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53]):
-        #Correlation between genes
-        corre= data.corr()
-         #Unstack the dataframe
-        s = corre.unstack()
-        so = s.sort_values(kind="quicksort", ascending=False)
-        #Create new dataframe
-        so2= pd.DataFrame(so).reset_index()
-        so2= so2.rename(columns={0: 'correlation', 'level_0':col1, 'level_1': col2})
-        #Filter out the coef 1 correlation between the same drugs
-        so2= so2[so2['correlation'] != 1]
-        #Drop pair duplicates
-        so2= so2.reset_index()
-        pos = pos
-        so3= so2.drop(so2.index[pos])
-        so3= so3.drop('index', axis=1)
-        #Show the first 10 high correlations
-        cm = sns.light_palette("Red", as_cmap=True)
-        s = so3.head(rows).style.background_gradient(cmap=cm)
-        print(f"{len(so2[so2['correlation']>thresh])/2} {col1} pairs have +{thresh} correlation.")
-        return s
