@@ -6,11 +6,13 @@ import seaborn as sns
 from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from skmultilearn.model_selection import iterative_train_test_split
+#from xgboost import XGBClassifier
 
 #Loading Data
 train_features = pd.read_csv("./data/train_features.csv")
@@ -47,7 +49,7 @@ def plot_individual_histograms(features, data, title):
     
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 selected_features = ['c-10', 'c-50', 'c-70', 'c-90']
 plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
 
@@ -62,7 +64,7 @@ def plot_cell_viability_difference(feature, data, control_data):
     plt.ylabel('Density')
     plt.title(f'Cell Viability Difference for {feature}')
     plt.legend()
-    plt.show()
+    #plt.show()
 
 control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
 treated_samples = train_features[train_features['cp_type'] == 'trt_cp']
@@ -77,9 +79,9 @@ def plot_treatment_time_impact(feature, data):
     plt.ylabel('Density')
     plt.title(f'Impact of Treatment Time on {feature}')
     plt.legend()
-    plt.show()
+    #plt.show()
 
-plot_treatment_time_impact('c-30', treated_samples)
+#plot_treatment_time_impact('c-30', treated_samples)
 
 
 def correlation_matrix(data, title):
@@ -91,7 +93,7 @@ def correlation_matrix(data, title):
     plt.title(title)
     plt.xticks(rotation=90)
     plt.yticks(rotation=0)
-    plt.show()
+    #plt.show()
 
 c_cols = [col for col in treated_samples.columns if 'c-' in col]
 correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
@@ -147,13 +149,26 @@ gene_expression_data = train_features[gene_expression_columns]
 #plt.title('PCA of Gene Expression Data')
 #plt.show()
 
+
 # Merge train_features and train_drugs
 merged_data = train_features.merge(train_drugs, on="sig_id")
 
-# Standardize the gene expression data
-gene_expression_data = merged_data.filter(regex=r'^g-', axis=1)
-scaler = StandardScaler()
-scaled_data = scaler.fit_transform(gene_expression_data)
+# Drop sig_id, cp_type, and cp_time from the merged_data
+#merged_data = merged_data.drop(["sig_id", "cp_type", "cp_time"], axis=1)
+
+# Merge the merged_data with train_target_scored
+merged_data = merged_data.merge(train_target_scored, on="sig_id")
+
+# Separate out the categorical columns
+cat_cols = ['cp_type', 'cp_time', 'cp_dose']
+cat_data = merged_data[cat_cols]
+
+# Drop the categorical columns and the 'sig_id' column
+num_data = merged_data.drop(cat_cols + ['sig_id'], axis=1)
+
+# Standardize the numerical data using the RobustScaler
+scaler = RobustScaler()
+scaled_data = scaler.fit_transform(num_data.filter(regex=r'^g-', axis=1))
 
 # Apply PCA
 pca = PCA(n_components=2)
@@ -170,19 +185,24 @@ plt.ylabel('Principal Component 2')
 plt.title('PCA of Gene Expression Data')
 plt.show()
 
-# Drop sig_id, cp_type, and cp_time from the merged_data
-merged_data = merged_data.drop(["sig_id", "cp_type", "cp_time"], axis=1)
-
-# Merge the merged_data with train_targets
-merged_data = merged_data.merge(train_target_scored, on="sig_id")
+# Merge the scaled numerical data with the categorical data
+merged_data = np.concatenate((scaled_data, num_data.filter(regex=r'^c-'), pd.get_dummies(cat_data)), axis=1)
 
 # Split the data into training and validation sets
-X = merged_data.drop("target", axis=1)  # Assuming "target" is the column name of your labels
-y = merged_data["target"]
-X_train, X_val, y_train, y_val = train_test_split(X, y.iloc[:, 1:], test_size=0.2, random_state=42)
+#X_train, X_val, y_train, y_val = train_test_split(
+    #merged_data, 
+    #train_target_scored.iloc[:, 1:],  # Assuming the target variable starts from the second column
+    #test_size=0.2, 
+    #random_state=42
+#)
+X_train, y_train, X_val, y_val = iterative_train_test_split(
+    merged_data,
+    train_target_scored.iloc[:, 1:].values, 
+    test_size=0.2
+)
 
 # Scale the data
-scaler = StandardScaler()
+scaler = RobustScaler()
 X_train = scaler.fit_transform(X_train)
 X_val = scaler.transform(X_val)
 
@@ -193,10 +213,10 @@ X_val = pca.transform(X_val)
 
 # Train and evaluate various models
 models = {
-    "Logistic Regression": LogisticRegression(),
-    "SVM": SVC(),
+    "Logistic Regression": MultiOutputClassifier(LogisticRegression()),
+    "SVM": MultiOutputClassifier(SVC()),
     "Random Forest": RandomForestClassifier(),
-    "XGBoost": XGBClassifier()
+    #"XGBoost": XGBClassifier()
 }
 
 for name, model in models.items():
