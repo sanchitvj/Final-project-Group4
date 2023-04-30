@@ -5,7 +5,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
 
 #Loading Data
 train_features = pd.read_csv("./data/train_features.csv")
@@ -127,13 +132,36 @@ treatment_samples = train_features[train_features['cp_type'] == 'trt_cp']
 gene_expression_columns = [col for col in train_features.columns if col.startswith('g-')]
 gene_expression_data = train_features[gene_expression_columns]
 # Standardize the gene expression data
+#scaler = StandardScaler()
+#scaled_data = scaler.fit_transform(gene_expression_data)
+# Apply PCA
+#pca = PCA(n_components=2)
+#principal_components = pca.fit_transform(scaled_data)
+# Create a DataFrame with the principal components
+#pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
+# Visualize the results
+#plt.figure(figsize=(8, 6))
+#plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
+#plt.xlabel('Principal Component 1')
+#plt.ylabel('Principal Component 2')
+#plt.title('PCA of Gene Expression Data')
+#plt.show()
+
+# Merge train_features and train_drugs
+merged_data = train_features.merge(train_drugs, on="sig_id")
+
+# Standardize the gene expression data
+gene_expression_data = merged_data.filter(regex=r'^g-', axis=1)
 scaler = StandardScaler()
 scaled_data = scaler.fit_transform(gene_expression_data)
+
 # Apply PCA
-pca = PCA(n_components=3)
+pca = PCA(n_components=2)
 principal_components = pca.fit_transform(scaled_data)
+
 # Create a DataFrame with the principal components
 pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
+
 # Visualize the results
 plt.figure(figsize=(8, 6))
 plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
@@ -142,4 +170,37 @@ plt.ylabel('Principal Component 2')
 plt.title('PCA of Gene Expression Data')
 plt.show()
 
+# Drop sig_id, cp_type, and cp_time from the merged_data
+merged_data = merged_data.drop(["sig_id", "cp_type", "cp_time"], axis=1)
 
+# Merge the merged_data with train_targets
+merged_data = merged_data.merge(train_target_scored, on="sig_id")
+
+# Split the data into training and validation sets
+X = merged_data.drop("target", axis=1)  # Assuming "target" is the column name of your labels
+y = merged_data["target"]
+X_train, X_val, y_train, y_val = train_test_split(X, y.iloc[:, 1:], test_size=0.2, random_state=42)
+
+# Scale the data
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
+
+# Reduce the dimensionality of the data using PCA
+pca = PCA(n_components=0.95)
+X_train = pca.fit_transform(X_train)
+X_val = pca.transform(X_val)
+
+# Train and evaluate various models
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "SVM": SVC(),
+    "Random Forest": RandomForestClassifier(),
+    "XGBoost": XGBClassifier()
+}
+
+for name, model in models.items():
+    print(f"Training {name}...")
+    model.fit(X_train, y_train)
+    score = model.score(X_val, y_val)
+    print(f"{name} accuracy: {score}")
