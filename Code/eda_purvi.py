@@ -12,6 +12,7 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
 from skmultilearn.model_selection import iterative_train_test_split
+from sklearn.metrics import log_loss
 #from xgboost import XGBClassifier
 
 #Loading Data
@@ -222,5 +223,15 @@ models = {
 for name, model in models.items():
     print(f"Training {name}...")
     model.fit(X_train, y_train)
-    score = model.score(X_val, y_val)
-    print(f"{name} accuracy: {score}")
+    
+    y_pred = model.predict_proba(X_val) if hasattr(model, 'predict_proba') else model.predict(X_val)
+    
+    if isinstance(y_pred[0], list):
+        y_pred_concat = np.concatenate([y[:, np.newaxis] for y in y_pred], axis=1)
+    elif len(y_pred.shape) == 1:
+        y_pred_concat = y_pred[:, np.newaxis]
+    else:
+        y_pred_concat = y_pred
+
+    loss = log_loss(y_val, y_pred_concat)
+    print(f"{name} log loss: {loss}")
