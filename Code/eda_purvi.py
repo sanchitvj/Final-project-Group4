@@ -52,10 +52,10 @@ def plot_individual_histograms(features, data, title):
     plt.tight_layout()
     #plt.show()
 selected_features = ['c-10', 'c-50', 'c-70', 'c-90']
-plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
+# plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
 
 selected_genes = ['g-10', 'g-100', 'g-200', 'g-400']
-plot_individual_histograms(selected_genes, train_features, 'Selected g- Features')
+# plot_individual_histograms(selected_genes, train_features, 'Selected g- Features')
 
 def plot_cell_viability_difference(feature, data, control_data):
     plt.figure(figsize=(15, 5))
@@ -69,7 +69,7 @@ def plot_cell_viability_difference(feature, data, control_data):
 
 control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
 treated_samples = train_features[train_features['cp_type'] == 'trt_cp']
-plot_cell_viability_difference('c-30', treated_samples, control_samples)
+# plot_cell_viability_difference('c-30', treated_samples, control_samples)
 
 
 def plot_treatment_time_impact(feature, data):
@@ -97,11 +97,11 @@ def correlation_matrix(data, title):
     #plt.show()
 
 c_cols = [col for col in treated_samples.columns if 'c-' in col]
-correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
+# correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
 
 
 g_cols = [col for col in treated_samples.columns if 'g-' in col]
-correlation_matrix(treated_samples[g_cols], 'Correlation Between Gene Expression Features in Treated Samples')
+# correlation_matrix(treated_samples[g_cols], 'Correlation Between Gene Expression Features in Treated Samples')
 
 control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
 treatment_samples = train_features[train_features['cp_type'] == 'trt_cp']
@@ -179,12 +179,12 @@ principal_components = pca.fit_transform(scaled_data)
 pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
 
 # Visualize the results
-plt.figure(figsize=(8, 6))
-plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
-plt.xlabel('Principal Component 1')
-plt.ylabel('Principal Component 2')
-plt.title('PCA of Gene Expression Data')
-plt.show()
+# plt.figure(figsize=(8, 6))
+# plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
+# plt.xlabel('Principal Component 1')
+# plt.ylabel('Principal Component 2')
+# plt.title('PCA of Gene Expression Data')
+# plt.show()
 
 # Merge the scaled numerical data with the categorical data
 merged_data = np.concatenate((scaled_data, num_data.filter(regex=r'^c-'), pd.get_dummies(cat_data)), axis=1)
@@ -220,18 +220,68 @@ models = {
     #"XGBoost": XGBClassifier()
 }
 
+# for name, model in models.items():
+#     print(f"Training {name}...")
+#     model.fit(X_train, y_train)
+    
+#     y_pred = model.predict_proba(X_val) if hasattr(model, 'predict_proba') else model.predict(X_val)
+    
+#     if isinstance(y_pred[0], list):
+#         y_pred_concat = np.concatenate([y[:, np.newaxis] for y in y_pred], axis=1)
+#     elif len(y_pred.shape) == 1:
+#         y_pred_concat = y_pred[:, np.newaxis]
+#     else:
+#         y_pred_concat = y_pred
+
+#     loss = log_loss(y_val, y_pred_concat)
+#     print(f"{name} log loss: {loss}")
+
+# Scale the data using StandardScaler
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled = scaler.transform(X_val)
+
+print(X_train_scaled.shape)
+print(y_train.shape)
+
+def Extract(lst): 
+    return [item[:,1] for item in lst] 
+def pred_transform(preds):
+    out=Extract(preds)
+    arr=np.array(out)
+    arr1=np.transpose(arr)
+    return arr1
+# Update the logistic regression model with a higher max_iter value
+# models['Logistic Regression'] = LogisticRegression(max_iter=100)
+
 for name, model in models.items():
     print(f"Training {name}...")
-    model.fit(X_train, y_train)
+    model.fit(X_train_scaled, y_train)  # remove [:1000,]
     
-    y_pred = model.predict_proba(X_val) if hasattr(model, 'predict_proba') else model.predict(X_val)
-    
-    if isinstance(y_pred[0], list):
-        y_pred_concat = np.concatenate([y[:, np.newaxis] for y in y_pred], axis=1)
-    elif len(y_pred.shape) == 1:
-        y_pred_concat = y_pred[:, np.newaxis]
-    else:
-        y_pred_concat = y_pred
+    y_pred = model.predict_proba(X_val_scaled) #if hasattr(model, 'predict_proba') else model.predict(X_val_scaled)
+    # y_pred = np.array(y_pred)  
+    # if y_pred.ndim == 3:  # If y_pred has 3 dimensions
+    #     y_pred_concat = y_pred[:, :, 1]  # Select only the positive class probabilities
+    # else:
+    #     y_pred_concat = y_pred
+    # y_pred_concat = y_pred_concat.T
 
-    loss = log_loss(y_val, y_pred_concat)
+    y_pred_concat = pred_transform(y_pred)
+    print(y_val.shape)
+    print(y_pred_concat.shape)
+
+    # unique_labels = np.unique(y_val)
+    loss = log_loss(y_val, y_pred_concat) #labels=unique_labels)
     print(f"{name} log loss: {loss}")
+    # if isinstance(y_pred, list):
+    #y_pred_concat = np.concatenate([y[:, np.newaxis] for y in y_pred], axis=1)
+    # y_pred_concat = np.concatenate(y_pred, axis=1)
+
+    # # elif isinstance(y_pred, np.ndarray) and len(y_pred.shape) == 1:
+    # #     y_pred_concat = y_pred[:, np.newaxis]
+    # # else:
+    # #     y_pred_concat = y_pred[:, 1][:, np.newaxis] 
+    # print(y_val.shape)
+    # print(y_pred_concat.shape)
+    # loss = log_loss(y_val, y_pred_concat)
+    # print(f"{name} log loss: {loss}")
