@@ -332,7 +332,7 @@ def run_k_fold(NFOLDS, seed):
         plt.title(f"Validation loss for fold {fold}")
         plt.show()
 
-    return oof#, tr_loss, vl_loss  # , predictions
+    return oof  # , tr_loss, vl_loss  # , predictions
 
 
 SEED = [42]  # , 6313, 6202]  # , 3, 4, 5]
