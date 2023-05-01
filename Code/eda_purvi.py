@@ -215,7 +215,7 @@ X_val = pca.transform(X_val)
 # Train and evaluate various models
 models = {
     "Logistic Regression": MultiOutputClassifier(LogisticRegression()),
-    "SVM": MultiOutputClassifier(SVC()),
+    "SVM": MultiOutputClassifier(SVC(probability=True)),
     "Random Forest": RandomForestClassifier(),
     #"XGBoost": XGBClassifier()
 }
