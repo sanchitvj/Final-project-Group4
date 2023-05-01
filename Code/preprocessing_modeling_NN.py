@@ -40,35 +40,38 @@ GENES = [col for col in train_features.columns if col.startswith('g-')]
 CELLS = [col for col in train_features.columns if col.startswith('c-')]
 
 # GENES
-# n_comp = 50
-#
-# data = pd.DataFrame(train_features[GENES])
-# data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[GENES]))
-#
-# train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
-# train_features = pd.concat((train_features, train2), axis=1)
-#
-# n_comp = 15
-#
-# data = pd.DataFrame(train_features[CELLS])
-# # data = pd.concat([pd.DataFrame(train_features[CELLS]), pd.DataFrame(test_features[CELLS])])
-# data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[CELLS]))
-#
-# train2 = pd.DataFrame(data2, columns=[f'pca_C-{i}' for i in range(n_comp)])
-#
-# train_features = pd.concat((train_features, train2), axis=1)
+n_comp = 50
+
+data = pd.DataFrame(train_features[GENES])
+data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[GENES]))
+
+train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
+train_features = pd.concat((train_features, train2), axis=1)
+
+n_comp = 15
+
+data = pd.DataFrame(train_features[CELLS])
+data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[CELLS]))
+
+train2 = pd.DataFrame(data2, columns=[f'pca_C-{i}' for i in range(n_comp)])
+
+train_features = pd.concat((train_features, train2), axis=1)
+
+# train_features_new = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
+#                                   columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
+# train_features = pd.concat((train_features_c, train_features_new), axis=1)
 print(train_features.shape)
 
-# var_thresh = VarianceThreshold(threshold=0.5)
-# data = train_features
-# data_transformed = var_thresh.fit_transform(data.iloc[:, 4:])
-#
-# train_features_transformed = data_transformed[: train_features.shape[0]]
-#
-# train_features = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
-#                               columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
-#
-# train_features = pd.concat([train_features, pd.DataFrame(data_transformed)], axis=1)
+var_thresh = VarianceThreshold(threshold=0.5)
+data = train_features
+data_transformed = var_thresh.fit_transform(data.iloc[:, 4:])
+
+train_features_transformed = data_transformed[: train_features.shape[0]]
+
+train_features = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
+                              columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
+
+train_features = pd.concat([train_features, pd.DataFrame(data_transformed)], axis=1)
 
 print(train_features.shape)
 
@@ -114,7 +117,7 @@ def train_fn(model, optimizer, scheduler, loss_fn, dataloader, device):
     for data in dataloader:
         optimizer.zero_grad()
         inputs, targets = data['x'].to(device), data['y'].to(device)
-        #         print(inputs.shape)
+        # print(inputs.shape)
         outputs = model(inputs)
         loss = loss_fn(outputs, targets)
         loss.backward()
@@ -290,18 +293,17 @@ def run_k_fold(NFOLDS, seed):
     return oof, fold_loss
 
 
-SEED = [42]  # , 6313, 6202]  # , 3, 4, 5]
+SEED = [6202]
 # oof = np.zeros((len(train), len(target_cols)))
 
 # for seed in SEED:
 oof_, fold_loss = run_k_fold(NFOLDS, SEED[0])
-    # oof += oof_ / len(SEED)
 
-plt.plot(fold_loss[0], label="Fold 1")
-plt.plot(fold_loss[1], label="Fold 2")
-plt.plot(fold_loss[2], label="Fold 3")
-plt.plot(fold_loss[3], label="Fold 4")
-plt.plot(fold_loss[4], label="Fold 5")
+plt.plot(range(EPOCHS), fold_loss[0], label="Fold 1")
+plt.plot(range(EPOCHS), fold_loss[1], label="Fold 2")
+plt.plot(range(EPOCHS), fold_loss[2], label="Fold 3")
+plt.plot(range(EPOCHS), fold_loss[3], label="Fold 4")
+plt.plot(range(EPOCHS), fold_loss[4], label="Fold 5")
 plt.title("Validation loss for 5 folds")
 plt.legend()
 plt.xlabel("Epochs")
