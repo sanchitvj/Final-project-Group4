@@ -1,24 +1,32 @@
-import numpy as np
-import random
-import pandas as pd
-import matplotlib.pyplot as plt
 import os
-import copy
-import seaborn as sns
 
-from sklearn import preprocessing
-from sklearn.metrics import log_loss
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.feature_selection import VarianceThreshold
-from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from sklearn.decomposition import PCA
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.metrics import log_loss
 
 # os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
+# DEVICE = "mps" if torch.has_mps else "cpu"  # https://stackoverflow.com/questions/72535034/module-torch-has-no-attribute-has-mps
+# NotImplementedError: The operator 'aten::_weight_norm_interface' is not currently implemented
+# for the MPS device. If you want this op to be added in priority during the prototype phase
+# of this feature, please comment on https://github.com/pytorch/pytorch/issues/77764. As a
+# temporary fix, you can set the environment variable `PYTORCH_ENABLE_MPS_FALLBACK=1` to
+# use the CPU as a fallback for this op. WARNING: this will be slower than running natively
+# on MPS.
+# print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
+EPOCHS = 5  # 10 : CV log_loss:  0.015007138448626117
+BATCH_SIZE = 64
+LEARNING_RATE = 1e-3
+WEIGHT_DECAY = 1e-5
+NFOLDS = 5
 
 train_features = pd.read_csv("./data/train_features.csv")
 train_drugs = pd.read_csv("./data/train_drug.csv")
@@ -26,10 +34,9 @@ train_targets_scored = pd.read_csv("./data/train_targets_scored.csv")
 
 
 def seed_everything(seed=6202):
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
     # torch.cuda.manual_seed(seed)  NO CUDA in mac
     # torch.backends.cudnn.deterministic = True
 
@@ -86,7 +93,17 @@ for f, (t_idx, v_idx) in enumerate(mskf.split(X=train, y=target)):
     folds.loc[v_idx, 'kfold'] = int(f)
 
 folds['kfold'] = folds['kfold'].astype(int)
+
+
 # print(folds)
+
+def process_data(data):
+    data = pd.get_dummies(data, columns=['cp_time', 'cp_dose'])
+    return data
+
+
+feature_cols = [c for c in process_data(folds).columns if c not in target_cols]
+feature_cols = [c for c in feature_cols if c not in ['kfold', 'sig_id']]
 
 
 # Reference: https://www.kaggle.com/code/yasufuminakama/moa-pytorch-nn-starter?scriptVersionId=42246440&cellId=16
@@ -138,7 +155,9 @@ def validate(model, loss_fn, dataloader, device):
             loss = loss_fn(outputs, targets)
 
             total_loss += loss.item()
-            predictions.append(outputs.sigmoid().detach().cpu().numpy())
+            predictions.append(outputs.sigmoid())
+            # Use below if you have CUDA or MPS(Apple Silicon chip) and comment above.
+            # predictions.append(outputs.sigmoid().detach().cpu().numpy())
 
     avg_loss = total_loss / len(dataloader)
     predictions = np.concatenate(predictions)
@@ -185,93 +204,132 @@ class Model(nn.Module):
         return x
 
 
-def process_data(data):
-    data = pd.get_dummies(data, columns=['cp_time', 'cp_dose'])
-    return data
-
-
-feature_cols = [c for c in process_data(folds).columns if c not in target_cols]
-feature_cols = [c for c in feature_cols if c not in ['kfold', 'sig_id']]
-
-DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
-# DEVICE = "mps" if torch.has_mps else "cpu"  # https://stackoverflow.com/questions/72535034/module-torch-has-no-attribute-has-mps
-# NotImplementedError: The operator 'aten::_weight_norm_interface' is not currently implemented
-# for the MPS device. If you want this op to be added in priority during the prototype phase
-# of this feature, please comment on https://github.com/pytorch/pytorch/issues/77764. As a
-# temporary fix, you can set the environment variable `PYTORCH_ENABLE_MPS_FALLBACK=1` to
-# use the CPU as a fallback for this op. WARNING: this will be slower than running natively
-# on MPS.
-# print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
-EPOCHS = 20  # 10 : CV log_loss:  0.015007138448626117
-BATCH_SIZE = 64
-LEARNING_RATE = 1e-3
-WEIGHT_DECAY = 1e-5
-NFOLDS = 5
-EARLY_STOPPING_STEPS = 10
-EARLY_STOP = False
-
 num_features = len(feature_cols)
 num_targets = len(target_cols)
 hidden_size = 1024
 model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
 print(model)
+
+
 # for name, param in model.named_parameters():
 #     print(name, param.shape)
 
 
+# def run_training(fold, seed):
+#     seed_everything(seed)
+#
+#     train = process_data(folds)
+#     # trn_idx = train[train['kfold'] != fold].index
+#     val_idx = train[train['kfold'] == fold].index
+#
+#     train_df = train[train['kfold'] != fold].reset_index(drop=True)
+#     valid_df = train[train['kfold'] == fold].reset_index(drop=True)
+#
+#     x_train, y_train = train_df[feature_cols].values, train_df[target_cols].values
+#     x_valid, y_valid = valid_df[feature_cols].values, valid_df[target_cols].values
+#
+#     train_dataset = MoADataset(x_train, y_train)
+#     valid_dataset = MoADataset(x_valid, y_valid)
+#     trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+#     validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+#
+#     model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
+#     model.to(DEVICE)
+#
+#     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+#     scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, pct_start=0.1, div_factor=1e3,
+#                                               max_lr=1e-2, epochs=EPOCHS, steps_per_epoch=len(trainloader))
+#
+#     # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
+#     loss_fn = nn.BCEWithLogitsLoss()
+#
+#     early_stopping_steps = EARLY_STOPPING_STEPS
+#     early_step = 0
+#
+#     oof = np.zeros((len(train), target.iloc[:, 1:].shape[1]))
+#     best_loss = np.inf
+#     tr_loss, vl_loss = [], []
+#     for epoch in range(EPOCHS):
+#
+#         train_loss = train_model(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
+#         print(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}")
+#         valid_loss, valid_preds = validate(model, loss_fn, validloader, DEVICE)
+#         print(f"FOLD: {fold}, EPOCH: {epoch}, valid_loss: {valid_loss}")
+#         tr_loss.append(train_loss), vl_loss.append(valid_loss)
+#         if valid_loss < best_loss:
+#
+#             best_loss = valid_loss
+#             oof[val_idx] = valid_preds
+#             torch.save(model.state_dict(), f"NN_FOLD{fold}_.pth")
+#
+#     return oof, tr_loss, vl_loss
 def run_training(fold, seed):
+    """
+    Train the neural network model for one fold of the dataset.
+
+    Args:
+        fold (int): The fold to train the model on.
+        seed (int): The random seed to use for the training process.
+
+    Returns:
+        tuple: A tuple containing the out-of-fold predictions, training loss, and validation loss.
+    """
+
+    # Set the random seed for reproducibility
     seed_everything(seed)
 
+    # Load and preprocess the data for this fold
     train = process_data(folds)
-    # trn_idx = train[train['kfold'] != fold].index
     val_idx = train[train['kfold'] == fold].index
-
     train_df = train[train['kfold'] != fold].reset_index(drop=True)
     valid_df = train[train['kfold'] == fold].reset_index(drop=True)
-
     x_train, y_train = train_df[feature_cols].values, train_df[target_cols].values
     x_valid, y_valid = valid_df[feature_cols].values, valid_df[target_cols].values
 
+    # Create PyTorch datasets and dataloaders for training and validation
     train_dataset = MoADataset(x_train, y_train)
     valid_dataset = MoADataset(x_valid, y_valid)
     trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
+    # Initialize the neural network model and move it to the device
     model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
     model.to(DEVICE)
 
+    # Initialize the optimizer and learning rate scheduler
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, pct_start=0.1, div_factor=1e3,
                                               max_lr=1e-2, epochs=EPOCHS, steps_per_epoch=len(trainloader))
 
+    # Use binary cross-entropy loss with logits
     # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
     loss_fn = nn.BCEWithLogitsLoss()
 
-    early_stopping_steps = EARLY_STOPPING_STEPS
-    early_step = 0
-
+    # Initialize arrays to store losses
     oof = np.zeros((len(train), target.iloc[:, 1:].shape[1]))
     best_loss = np.inf
     tr_loss, vl_loss = [], []
-    for epoch in range(EPOCHS):
 
+    # Train the model for the specified number of epochs
+    for epoch in range(EPOCHS):
+        # Train the model for one epoch
         train_loss = train_model(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
         print(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}")
+
+        # Compute the validation loss and predictions for this epoch
         valid_loss, valid_preds = validate(model, loss_fn, validloader, DEVICE)
         print(f"FOLD: {fold}, EPOCH: {epoch}, valid_loss: {valid_loss}")
-        tr_loss.append(train_loss), vl_loss.append(valid_loss)
-        if valid_loss < best_loss:
 
+        # Store the training and validation losses for this epoch
+        tr_loss.append(train_loss), vl_loss.append(valid_loss)
+
+        # Check if the validation loss improved and save the model if it did
+        if valid_loss < best_loss:
             best_loss = valid_loss
             oof[val_idx] = valid_preds
             torch.save(model.state_dict(), f"NN_FOLD{fold}_.pth")
 
-        elif EARLY_STOP:
-
-            early_step += 1
-            if early_step >= early_stopping_steps:
-                break
-
+    # Return the out-of-fold predictions, training losses, and validation losses
     return oof, tr_loss, vl_loss
 
 
@@ -291,6 +349,8 @@ def run_k_fold(NFOLDS, seed):
     return oof, fold_loss
 
 
+# https://www.kaggle.com/competitions/lish-moa/discussion/193099
+# Seed averaging needs memory and better compute. Time taking as well, not trying for now.
 SEED = [6202]
 # oof -> out of folds
 oof_, fold_loss = run_k_fold(NFOLDS, SEED[0])
@@ -306,15 +366,14 @@ plt.xlabel("Epochs")
 plt.show()
 
 train[target_cols] = oof_
-valid_results = train_targets_scored.drop(columns=target_cols).merge(train[['sig_id'] + target_cols], on='sig_id',
-                                                                     how='left').fillna(0)
-
-y_true = train_targets_scored[target_cols].values
-y_pred = valid_results[target_cols].values
+valid_results = train_targets_scored.drop(columns=target_cols)
+valid_results = valid_results.merge(train[['sig_id'] + target_cols], on='sig_id',
+                                    how='left').fillna(0)
+y_true, y_pred = train_targets_scored[target_cols].values, valid_results[target_cols].values
 
 score = 0
 for i in range(len(target_cols)):
     score_ = log_loss(y_true[:, i], y_pred[:, i])
     score += score_ / target.shape[1]
 
-print("CV log_loss: ", score)
+print("5 fold Cross Validation Logit Loss: ", score)
