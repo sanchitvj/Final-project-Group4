@@ -51,7 +51,7 @@ train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
 # test2 = pd.DataFrame(test2, columns=[f'pca_G-{i}' for i in range(n_comp)])
 
 # drop_cols = [f'c-{i}' for i in range(n_comp,len(GENES))]
-train_features = pd.concat((train_features, train2), axis=1)
+# train_features = pd.concat((train_features, train2), axis=1)
 # test_features = pd.concat((test_features, test2), axis=1)
 
 n_comp = 15
@@ -65,7 +65,7 @@ train2 = pd.DataFrame(data2, columns=[f'pca_C-{i}' for i in range(n_comp)])
 # test2 = pd.DataFrame(test2, columns=[f'pca_C-{i}' for i in range(n_comp)])
 
 # drop_cols = [f'c-{i}' for i in range(n_comp,len(CELLS))]
-train_features = pd.concat((train_features, train2), axis=1)
+# train_features = pd.concat((train_features, train2), axis=1)
 # test_features = pd.concat((test_features, test2), axis=1)
 print(train_features.shape)
 
@@ -73,13 +73,13 @@ var_thresh = VarianceThreshold(threshold=0.5)
 data = train_features  # .append(test_features)
 data_transformed = var_thresh.fit_transform(data.iloc[:, 4:])
 
-train_features_transformed = data_transformed[: train_features.shape[0]]
+# train_features_transformed = data_transformed[: train_features.shape[0]]
 # test_features_transformed = data_transformed[-test_features.shape[0]:]
 
-train_features = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
-                              columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
-
-train_features = pd.concat([train_features, pd.DataFrame(train_features_transformed)], axis=1)
+# train_features = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
+#                               columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
+#
+# train_features = pd.concat([train_features, pd.DataFrame(data_transformed)], axis=1)
 
 # test_features = pd.DataFrame(test_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4), \
 #                              columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
@@ -226,7 +226,7 @@ len(feature_cols)
 DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
 # DEVICE = "mps" if torch.has_mps else "cpu"  # https://stackoverflow.com/questions/72535034/module-torch-has-no-attribute-has-mps
 print(DEVICE)
-EPOCHS = 10  # 10 : CV log_loss:  0.015007138448626117
+EPOCHS = 20  # 10 : CV log_loss:  0.015007138448626117
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
@@ -339,9 +339,9 @@ SEED = [42]  # , 6313, 6202]  # , 3, 4, 5]
 oof = np.zeros((len(train), len(target_cols)))
 predictions = np.zeros(len(target_cols))
 
-for seed in SEED:
-    oof_ = run_k_fold(NFOLDS, seed)
-    oof += oof_ / len(SEED)
+# for seed in SEED:
+oof_ = run_k_fold(NFOLDS, SEED[0])
+    # oof += oof_ / len(SEED)
     # predictions += predictions_ / len(SEED)
 
 train[target_cols] = oof
