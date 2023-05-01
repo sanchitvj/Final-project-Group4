@@ -89,6 +89,7 @@ folds['kfold'] = folds['kfold'].astype(int)
 # print(folds)
 
 
+# Reference: https://www.kaggle.com/code/yasufuminakama/moa-pytorch-nn-starter?scriptVersionId=42246440&cellId=16
 class MoADataset:
     def __init__(self, features, targets):
         self.features = features
@@ -105,44 +106,44 @@ class MoADataset:
         return data_dict
 
 
-def train_fn(model, optimizer, scheduler, loss_fn, dataloader, device):
+def train_model(model, optimizer, scheduler, loss_fn, dataloader, device):
     model.train()
-    final_loss = 0
+    epoch_loss = 0
 
-    for data in dataloader:
+    for i, batch in enumerate(dataloader):
         optimizer.zero_grad()
-        inputs, targets = data['x'].to(device), data['y'].to(device)
-        # print(inputs.shape)
-        outputs = model(inputs)
-        loss = loss_fn(outputs, targets)
+        x, y = batch['x'].to(device), batch['y'].to(device)
+        y_pred = model(x)
+        loss = loss_fn(y_pred, y)
         loss.backward()
         optimizer.step()
         scheduler.step()
 
-        final_loss += loss.item()
+        epoch_loss += loss.item()
 
-    final_loss /= len(dataloader)
+    epoch_loss /= len(dataloader)
 
-    return final_loss
+    return epoch_loss
 
 
-def valid_fn(model, loss_fn, dataloader, device):
+def validate(model, loss_fn, dataloader, device):
     model.eval()
-    final_loss = 0
-    valid_preds = []
+    total_loss = 0
+    predictions = []
 
-    for data in dataloader:
-        inputs, targets = data['x'].to(device), data['y'].to(device)
-        outputs = model(inputs)
-        loss = loss_fn(outputs, targets)
+    with torch.no_grad():
+        for batch in dataloader:
+            inputs, targets = batch['x'].to(device), batch['y'].to(device)
+            outputs = model(inputs)
+            loss = loss_fn(outputs, targets)
 
-        final_loss += loss.item()
-        valid_preds.append(outputs.sigmoid().detach().cpu().numpy())
+            total_loss += loss.item()
+            predictions.append(outputs.sigmoid().detach().cpu().numpy())
 
-    final_loss /= len(dataloader)
-    valid_preds = np.concatenate(valid_preds)
+    avg_loss = total_loss / len(dataloader)
+    predictions = np.concatenate(predictions)
 
-    return final_loss, valid_preds
+    return avg_loss, predictions
 
 
 class Model(nn.Module):
@@ -222,7 +223,7 @@ def run_training(fold, seed):
     seed_everything(seed)
 
     train = process_data(folds)
-    trn_idx = train[train['kfold'] != fold].index
+    # trn_idx = train[train['kfold'] != fold].index
     val_idx = train[train['kfold'] == fold].index
 
     train_df = train[train['kfold'] != fold].reset_index(drop=True)
@@ -254,9 +255,9 @@ def run_training(fold, seed):
     tr_loss, vl_loss = [], []
     for epoch in range(EPOCHS):
 
-        train_loss = train_fn(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
+        train_loss = train_model(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
         print(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}")
-        valid_loss, valid_preds = valid_fn(model, loss_fn, validloader, DEVICE)
+        valid_loss, valid_preds = validate(model, loss_fn, validloader, DEVICE)
         print(f"FOLD: {fold}, EPOCH: {epoch}, valid_loss: {valid_loss}")
         tr_loss.append(train_loss), vl_loss.append(valid_loss)
         if valid_loss < best_loss:
