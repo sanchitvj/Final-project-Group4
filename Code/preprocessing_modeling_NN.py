@@ -22,7 +22,7 @@ DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
 # use the CPU as a fallback for this op. WARNING: this will be slower than running natively
 # on MPS.
 # print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
-EPOCHS = 2  # 10 : CV log_loss:  0.015007138448626117
+EPOCHS = 20  # 10 : CV log_loss:  0.015007138448626117
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
