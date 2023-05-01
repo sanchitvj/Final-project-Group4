@@ -94,26 +94,53 @@ def plot_treatment_time_impact(feature, data):
 
 # plot_treatment_time_impact('c-30', treated_samples)
 
-
 def correlation_matrix(data, title):
     corr = data.corr()
-    mask = np.triu(np.ones_like(corr, dtype=bool))
 
-    plt.figure(figsize=(15, 12))
-    sns.heatmap(corr, mask=mask, cmap='coolwarm', annot=True, fmt=".2f", linewidths=0.5, square=True,
-                cbar_kws={"shrink": .8})
-    plt.title(title)
-    plt.xticks(rotation=90)
-    plt.yticks(rotation=0)
-    # plt.show()
+    # Get the upper triangular of the correlation matrix
+    upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+
+    # Get the top 10 highest and lowest correlated features
+    top_10_highest = upper.stack().nlargest(10)
+    top_10_lowest = upper.stack().nsmallest(10)
+
+    # # Plot the heatmap
+    # plt.figure(figsize=(15, 12))
+    # sns.heatmap(corr, mask=mask, cmap='coolwarm', annot=True, fmt=".2f", linewidths=0.5, square=True,
+    #             cbar_kws={"shrink": .8})
+    # plt.title(title)
+    # plt.xticks(rotation=90)
+    # plt.yticks(rotation=0)
+    # # plt.show()
 
 
-c_cols = [col for col in treated_samples.columns if 'c-' in col]
+    # Print the top 10 highest and lowest correlated features
+    print("Top 10 Highest Correlated Features:\n")
+    print(top_10_highest)
+    print("\nTop 10 Lowest Correlated Features:\n")
+    print(top_10_lowest)
+    plt.show()
+# c_cols = [col for col in treated_samples.columns if 'c-' in col]
 # correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
-
-
-g_cols = [col for col in treated_samples.columns if 'g-' in col]
+# g_cols = [col for col in treated_samples.columns if 'g-' in col]
 # correlation_matrix(treated_samples[g_cols], 'Correlation Between Gene Expression Features in Treated Samples')
+# def correlation_matrix(data, title):
+#     corr = data.corr()
+#     mask = np.triu(np.ones_like(corr, dtype=bool))
+
+#     plt.figure(figsize=(15, 12))
+#     sns.heatmap(corr, mask=mask, cmap='coolwarm', annot=True, fmt=".2f", linewidths=0.5, square=True, cbar_kws={"shrink": .8})
+#     plt.title(title)
+#     plt.xticks(rotation=90)
+#     plt.yticks(rotation=0)
+#     #plt.show()
+
+# c_cols = [col for col in treated_samples.columns if 'c-' in col]
+# # correlation_matrix(treated_samples[c_cols], 'Correlation Between Cell Viability Features in Treated Samples')
+
+
+# g_cols = [col for col in treated_samples.columns if 'g-' in col]
+# # correlation_matrix(treated_samples[g_cols], 'Correlation Between Gene Expression Features in Treated Samples')
 
 control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
 treatment_samples = train_features[train_features['cp_type'] == 'trt_cp']
@@ -227,9 +254,15 @@ X_val = pca.transform(X_val)
 # Train and evaluate various models
 models = {
     "Logistic Regression": MultiOutputClassifier(LogisticRegression()),
+<<<<<<< Updated upstream
     "SVM": MultiOutputClassifier(SVC(probability=True)),
     "Random Forest": RandomForestClassifier(),
     # "XGBoost": XGBClassifier()
+=======
+    #"SVM": MultiOutputClassifier(SVC(probability=True)),
+    "Random Forest": RandomForestClassifier()
+    #"XGBoost": XGBClassifier()
+>>>>>>> Stashed changes
 }
 
 # for name, model in models.items():
