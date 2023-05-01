@@ -43,16 +43,9 @@ CELLS = [col for col in train_features.columns if col.startswith('c-')]
 n_comp = 50
 
 data = pd.DataFrame(train_features[GENES])
-# data = pd.concat([pd.DataFrame(train_features[GENES]), pd.DataFrame(test_features[GENES])])
 data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[GENES]))
-# train2 = data2[:train_features.shape[0]]; test2 = data2[-test_features.shape[0]:]
 
 train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
-# test2 = pd.DataFrame(test2, columns=[f'pca_G-{i}' for i in range(n_comp)])
-
-# drop_cols = [f'c-{i}' for i in range(n_comp,len(GENES))]
-# train_features = pd.concat((train_features, train2), axis=1)
-# test_features = pd.concat((test_features, test2), axis=1)
 
 n_comp = 15
 
@@ -74,23 +67,16 @@ data = train_features  # .append(test_features)
 data_transformed = var_thresh.fit_transform(data.iloc[:, 4:])
 
 # train_features_transformed = data_transformed[: train_features.shape[0]]
-# test_features_transformed = data_transformed[-test_features.shape[0]:]
 
 # train_features = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
 #                               columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
 #
 # train_features = pd.concat([train_features, pd.DataFrame(data_transformed)], axis=1)
 
-# test_features = pd.DataFrame(test_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4), \
-#                              columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
-
-# test_features = pd.concat([test_features, pd.DataFrame(test_features_transformed)], axis=1)
-
 print(train_features.shape)
 
 train = train_features.merge(train_targets_scored, on='sig_id')
 train = train[train['cp_type'] != 'ctl_vehicle'].reset_index(drop=True)
-# test = test_features[test_features['cp_type'] != 'ctl_vehicle'].reset_index(drop=True)
 
 target = train[train_targets_scored.columns]
 train = train.drop('cp_type', axis=1)
@@ -105,8 +91,6 @@ for f, (t_idx, v_idx) in enumerate(mskf.split(X=train, y=target)):
     folds.loc[v_idx, 'kfold'] = int(f)
 
 folds['kfold'] = folds['kfold'].astype(int)
-
-
 # print(folds)
 
 
@@ -116,7 +100,7 @@ class MoADataset:
         self.targets = targets
 
     def __len__(self):
-        return (self.features.shape[0])
+        return self.features.shape[0]
 
     def __getitem__(self, idx):
         dct = {
@@ -320,19 +304,17 @@ def run_training(fold, seed):
 
 def run_k_fold(NFOLDS, seed):
     oof = np.zeros((len(train), len(target_cols)))
-    predictions = np.zeros(len(target_cols))
 
     for fold in range(NFOLDS):
         oof_, tr_loss, vl_loss = run_training(fold, seed)
 
-        # predictions += pred_ / NFOLDS
         oof += oof_
         plt.plot(vl_loss)
         plt.xlabel("Epochs")
         plt.title(f"Validation loss for fold {fold}")
         plt.show()
 
-    return oof  # , tr_loss, vl_loss  # , predictions
+    return oof  # , tr_loss, vl_loss
 
 
 SEED = [42]  # , 6313, 6202]  # , 3, 4, 5]
@@ -342,10 +324,8 @@ predictions = np.zeros(len(target_cols))
 # for seed in SEED:
 oof_ = run_k_fold(NFOLDS, SEED[0])
     # oof += oof_ / len(SEED)
-    # predictions += predictions_ / len(SEED)
 
 train[target_cols] = oof
-# test[target_cols] = predictions
 
 valid_results = train_targets_scored.drop(columns=target_cols).merge(train[['sig_id'] + target_cols], on='sig_id',
                                                                      how='left').fillna(0)
