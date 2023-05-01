@@ -52,16 +52,14 @@ def plot_individual_histograms(features, data, title):
 
     plt.suptitle(title, y=1.02)
     plt.tight_layout()
-    # plt.show()
+    plt.show()
 
 
 selected_features = ['c-10', 'c-50', 'c-70', 'c-90']
-# plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
+plot_individual_histograms(selected_features, train_features, 'Histograms of Selected c- Features')
 
 selected_genes = ['g-10', 'g-100', 'g-200', 'g-400']
-
-
-# plot_individual_histograms(selected_genes, train_features, 'Selected g- Features')
+plot_individual_histograms(selected_genes, train_features, 'Selected g- Features')
 
 def plot_cell_viability_difference(feature, data, control_data):
     plt.figure(figsize=(15, 5))
@@ -71,14 +69,14 @@ def plot_cell_viability_difference(feature, data, control_data):
     plt.ylabel('Density')
     plt.title(f'Cell Viability Difference for {feature}')
     plt.legend()
-    # plt.show()
+    plt.show()
 
 
 control_samples = train_features[train_features['cp_type'] == 'ctl_vehicle']
 treated_samples = train_features[train_features['cp_type'] == 'trt_cp']
 
 
-# plot_cell_viability_difference('c-30', treated_samples, control_samples)
+plot_cell_viability_difference('c-30', treated_samples, control_samples)
 
 
 def plot_treatment_time_impact(feature, data):
@@ -92,7 +90,7 @@ def plot_treatment_time_impact(feature, data):
     # plt.show()
 
 
-# plot_treatment_time_impact('c-30', treated_samples)
+plot_treatment_time_impact('c-30', treated_samples)
 
 def correlation_matrix(data, title):
     corr = data.corr()
@@ -217,13 +215,13 @@ principal_components = pca.fit_transform(scaled_data)
 # Create a DataFrame with the principal components
 pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
 
-# Visualize the results
-# plt.figure(figsize=(8, 6))
-# plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
-# plt.xlabel('Principal Component 1')
-# plt.ylabel('Principal Component 2')
-# plt.title('PCA of Gene Expression Data')
-# plt.show()
+Visualize the results
+plt.figure(figsize=(8, 6))
+plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.title('PCA of Gene Expression Data')
+plt.show()
 
 # Merge the scaled numerical data with the categorical data
 merged_data = np.concatenate((scaled_data, num_data.filter(regex=r'^c-'), pd.get_dummies(cat_data)), axis=1)
