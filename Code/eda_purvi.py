@@ -215,7 +215,7 @@ principal_components = pca.fit_transform(scaled_data)
 # Create a DataFrame with the principal components
 pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
 
-Visualize the results
+#Visualize the results
 plt.figure(figsize=(8, 6))
 plt.scatter(pca_df['PC1'], pca_df['PC2'], edgecolors='k')
 plt.xlabel('Principal Component 1')
