@@ -22,7 +22,7 @@ DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
 # use the CPU as a fallback for this op. WARNING: this will be slower than running natively
 # on MPS.
 # print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
-EPOCHS = 5  # 10 : CV log_loss:  0.015007138448626117
+EPOCHS = 2  # 10 : CV log_loss:  0.015007138448626117
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
@@ -215,54 +215,6 @@ print(model)
 #     print(name, param.shape)
 
 
-# def run_training(fold, seed):
-#     seed_everything(seed)
-#
-#     train = process_data(folds)
-#     # trn_idx = train[train['kfold'] != fold].index
-#     val_idx = train[train['kfold'] == fold].index
-#
-#     train_df = train[train['kfold'] != fold].reset_index(drop=True)
-#     valid_df = train[train['kfold'] == fold].reset_index(drop=True)
-#
-#     x_train, y_train = train_df[feature_cols].values, train_df[target_cols].values
-#     x_valid, y_valid = valid_df[feature_cols].values, valid_df[target_cols].values
-#
-#     train_dataset = MoADataset(x_train, y_train)
-#     valid_dataset = MoADataset(x_valid, y_valid)
-#     trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-#     validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
-#
-#     model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
-#     model.to(DEVICE)
-#
-#     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-#     scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, pct_start=0.1, div_factor=1e3,
-#                                               max_lr=1e-2, epochs=EPOCHS, steps_per_epoch=len(trainloader))
-#
-#     # https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
-#     loss_fn = nn.BCEWithLogitsLoss()
-#
-#     early_stopping_steps = EARLY_STOPPING_STEPS
-#     early_step = 0
-#
-#     oof = np.zeros((len(train), target.iloc[:, 1:].shape[1]))
-#     best_loss = np.inf
-#     tr_loss, vl_loss = [], []
-#     for epoch in range(EPOCHS):
-#
-#         train_loss = train_model(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
-#         print(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}")
-#         valid_loss, valid_preds = validate(model, loss_fn, validloader, DEVICE)
-#         print(f"FOLD: {fold}, EPOCH: {epoch}, valid_loss: {valid_loss}")
-#         tr_loss.append(train_loss), vl_loss.append(valid_loss)
-#         if valid_loss < best_loss:
-#
-#             best_loss = valid_loss
-#             oof[val_idx] = valid_preds
-#             torch.save(model.state_dict(), f"NN_FOLD{fold}_.pth")
-#
-#     return oof, tr_loss, vl_loss
 def run_training(fold, seed):
     """
     Train the neural network model for one fold of the dataset.
@@ -327,7 +279,8 @@ def run_training(fold, seed):
         if valid_loss < best_loss:
             best_loss = valid_loss
             oof[val_idx] = valid_preds
-            torch.save(model.state_dict(), f"NN_FOLD{fold}_.pth")
+            # not saving; large size
+            # torch.save(model.state_dict(), f"NN_FOLD{fold}_.pth")
 
     # Return the out-of-fold predictions, training losses, and validation losses
     return oof, tr_loss, vl_loss
