@@ -25,36 +25,31 @@ train_drugs = pd.read_csv("./data/train_drug.csv")
 train_targets_scored = pd.read_csv("./data/train_targets_scored.csv")
 
 
-def seed_everything(seed=42):
+def seed_everything(seed=6202):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
+    # torch.cuda.manual_seed(seed)  NO CUDA in mac
+    # torch.backends.cudnn.deterministic = True
 
 
-seed_everything(seed=42)
+seed_everything(seed=6202)
 
 GENES = [col for col in train_features.columns if col.startswith('g-')]
 CELLS = [col for col in train_features.columns if col.startswith('c-')]
 
 # GENES
 n_comp = 50
-
 data = pd.DataFrame(train_features[GENES])
 data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[GENES]))
-
 train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
 train_features = pd.concat((train_features, train2), axis=1)
 
 n_comp = 15
-
 data = pd.DataFrame(train_features[CELLS])
 data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[CELLS]))
-
 train2 = pd.DataFrame(data2, columns=[f'pca_C-{i}' for i in range(n_comp)])
-
 train_features = pd.concat((train_features, train2), axis=1)
 
 # train_features_new = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
@@ -103,11 +98,11 @@ class MoADataset:
         return self.features.shape[0]
 
     def __getitem__(self, idx):
-        dct = {
+        data_dict = {
             'x': torch.tensor(self.features[idx, :], dtype=torch.float),
             'y': torch.tensor(self.targets[idx, :], dtype=torch.float)
         }
-        return dct
+        return data_dict
 
 
 def train_fn(model, optimizer, scheduler, loss_fn, dataloader, device):
@@ -151,19 +146,24 @@ def valid_fn(model, loss_fn, dataloader, device):
 
 
 class Model(nn.Module):
-    def __init__(self, num_features, num_targets, hidden_size):
+    def __init__(self, input_dim, output_dim, hidden_dim):
         super(Model, self).__init__()
-        self.batch_norm1 = nn.BatchNorm1d(num_features)
+        self.batch_norm1 = nn.BatchNorm1d(input_dim)
         self.dropout1 = nn.Dropout(0.2)
-        self.dense1 = nn.utils.weight_norm(nn.Linear(num_features, hidden_size))
+        self.dense1 = nn.utils.weight_norm(nn.Linear(input_dim, hidden_dim))
 
-        self.batch_norm2 = nn.BatchNorm1d(hidden_size)
-        self.dropout2 = nn.Dropout(0.5)
-        self.dense2 = nn.utils.weight_norm(nn.Linear(hidden_size, hidden_size))
+        self.batch_norm2 = nn.BatchNorm1d(hidden_dim)
+        self.dropout2 = nn.Dropout(0.3)
+        self.dense2 = nn.utils.weight_norm(nn.Linear(hidden_dim, hidden_dim))
 
-        self.batch_norm3 = nn.BatchNorm1d(hidden_size)
+        self.batch_norm3 = nn.BatchNorm1d(hidden_dim)
         self.dropout3 = nn.Dropout(0.5)
-        self.dense3 = nn.utils.weight_norm(nn.Linear(hidden_size, num_targets))
+        self.dense3 = nn.utils.weight_norm(nn.Linear(hidden_dim, output_dim))
+
+        # Causing some issue at fold 2/3, giving Nan, not working
+        # self.batch_norm4 = nn.BatchNorm1d(hidden_dim)
+        # self.dropout4 = nn.Dropout(0.5)
+        # self.dense4 = nn.PReLU(hidden_dim, output_dim)
 
     def forward(self, x):
         x = self.batch_norm1(x)
@@ -177,6 +177,9 @@ class Model(nn.Module):
         x = self.batch_norm3(x)
         x = self.dropout3(x)
         x = self.dense3(x)
+        # x = self.batch_norm4(x)
+        # x = self.dropout4(x)
+        # x = self.dense4(x)
 
         return x
 
@@ -197,7 +200,7 @@ DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
 # temporary fix, you can set the environment variable `PYTORCH_ENABLE_MPS_FALLBACK=1` to
 # use the CPU as a fallback for this op. WARNING: this will be slower than running natively
 # on MPS.
-# print(DEVICE)
+# print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
 EPOCHS = 20  # 10 : CV log_loss:  0.015007138448626117
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
@@ -209,7 +212,7 @@ EARLY_STOP = False
 num_features = len(feature_cols)
 num_targets = len(target_cols)
 hidden_size = 1024
-model = Model(num_features=num_features, num_targets=num_targets, hidden_size=hidden_size)
+model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
 print(model)
 # for name, param in model.named_parameters():
 #     print(name, param.shape)
@@ -219,7 +222,6 @@ def run_training(fold, seed):
     seed_everything(seed)
 
     train = process_data(folds)
-
     trn_idx = train[train['kfold'] != fold].index
     val_idx = train[train['kfold'] == fold].index
 
@@ -234,12 +236,7 @@ def run_training(fold, seed):
     trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = Model(
-        num_features=num_features,
-        num_targets=num_targets,
-        hidden_size=hidden_size,
-    )
-
+    model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
     model.to(DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
@@ -294,9 +291,7 @@ def run_k_fold(NFOLDS, seed):
 
 
 SEED = [6202]
-# oof = np.zeros((len(train), len(target_cols)))
-
-# for seed in SEED:
+# oof -> out of folds
 oof_, fold_loss = run_k_fold(NFOLDS, SEED[0])
 
 plt.plot(range(EPOCHS), fold_loss[0], label="Fold 1")
