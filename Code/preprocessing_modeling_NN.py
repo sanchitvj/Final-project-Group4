@@ -22,7 +22,7 @@ DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
 # use the CPU as a fallback for this op. WARNING: this will be slower than running natively
 # on MPS.
 # print(DEVICE) # Mac GPU and neural engine not utilizing -> CPU only
-EPOCHS = 20  # 10 : CV log_loss:  0.015007138448626117
+EPOCHS = 2  # 10 : CV log_loss:  0.015007138448626117
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-5
@@ -43,21 +43,21 @@ def seed_everything(seed=6202):
 
 seed_everything(seed=6202)
 
-GENES = [col for col in train_features.columns if col.startswith('g-')]
-CELLS = [col for col in train_features.columns if col.startswith('c-')]
+GENES = list(filter(lambda x: x.startswith('g-'), train_features.columns))
+CELLS = list(filter(lambda x: x.startswith('c-'), train_features.columns))
 
 # GENES
 n_comp = 50
-data = pd.DataFrame(train_features[GENES])
-data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[GENES]))
-train2 = pd.DataFrame(data2, columns=[f'pca_G-{i}' for i in range(n_comp)])
-train_features = pd.concat((train_features, train2), axis=1)
+gene_data = pd.DataFrame(train_features[GENES])
+gene_data_pca = PCA(n_components=n_comp, random_state=42).fit_transform(gene_data[GENES])
+train_gene_pca = pd.DataFrame(gene_data_pca, columns=[f'pca_G-{i}' for i in range(n_comp)])
+train_features = pd.concat((train_features, train_gene_pca), axis=1)
 
 n_comp = 15
-data = pd.DataFrame(train_features[CELLS])
-data2 = (PCA(n_components=n_comp, random_state=42).fit_transform(data[CELLS]))
-train2 = pd.DataFrame(data2, columns=[f'pca_C-{i}' for i in range(n_comp)])
-train_features = pd.concat((train_features, train2), axis=1)
+cell_data = pd.DataFrame(train_features[CELLS])
+cell_data_pca = (PCA(n_components=n_comp, random_state=42).fit_transform(cell_data[CELLS]))
+train_cell_pca = pd.DataFrame(cell_data_pca, columns=[f'pca_C-{i}' for i in range(n_comp)])
+train_features = pd.concat((train_features, train_cell_pca), axis=1)
 
 # train_features_new = pd.DataFrame(train_features[['sig_id', 'cp_type', 'cp_time', 'cp_dose']].values.reshape(-1, 4),
 #                                   columns=['sig_id', 'cp_type', 'cp_time', 'cp_dose'])
@@ -93,8 +93,6 @@ for f, (t_idx, v_idx) in enumerate(mskf.split(X=train, y=target)):
     folds.loc[v_idx, 'kfold'] = int(f)
 
 folds['kfold'] = folds['kfold'].astype(int)
-
-
 # print(folds)
 
 def process_data(data):
@@ -102,8 +100,8 @@ def process_data(data):
     return data
 
 
-feature_cols = [c for c in process_data(folds).columns if c not in target_cols]
-feature_cols = [c for c in feature_cols if c not in ['kfold', 'sig_id']]
+feature_cols = set(process_data(folds).columns) - set(target_cols) - {'kfold', 'sig_id'}
+feature_cols = list(feature_cols)
 
 
 # Reference: https://www.kaggle.com/code/yasufuminakama/moa-pytorch-nn-starter?scriptVersionId=42246440&cellId=16
@@ -209,8 +207,6 @@ num_targets = len(target_cols)
 hidden_size = 1024
 model = Model(input_dim=num_features, output_dim=num_targets, hidden_dim=hidden_size)
 print(model)
-
-
 # for name, param in model.named_parameters():
 #     print(name, param.shape)
 
@@ -266,11 +262,11 @@ def run_training(fold, seed):
     for epoch in range(EPOCHS):
         # Train the model for one epoch
         train_loss = train_model(model, optimizer, scheduler, loss_fn, trainloader, DEVICE)
-        print(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}")
+        print(f"FOLD: {fold}, EPOCH: {epoch+1}, train_loss: {train_loss}")
 
         # Compute the validation loss and predictions for this epoch
         valid_loss, valid_preds = validate(model, loss_fn, validloader, DEVICE)
-        print(f"FOLD: {fold}, EPOCH: {epoch}, valid_loss: {valid_loss}")
+        print(f"FOLD: {fold}, EPOCH: {epoch+1}, valid_loss: {valid_loss}")
 
         # Store the training and validation losses for this epoch
         tr_loss.append(train_loss), vl_loss.append(valid_loss)
@@ -324,9 +320,6 @@ valid_results = valid_results.merge(train[['sig_id'] + target_cols], on='sig_id'
                                     how='left').fillna(0)
 y_true, y_pred = train_targets_scored[target_cols].values, valid_results[target_cols].values
 
-score = 0
-for i in range(len(target_cols)):
-    score_ = log_loss(y_true[:, i], y_pred[:, i])
-    score += score_ / target.shape[1]
+score = np.mean([log_loss(y_true[:, i], y_pred[:, i]) for i in range(len(target_cols))])
 
 print("5 fold Cross Validation Logit Loss: ", score)
